@@ -1,0 +1,520 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ProjectHub API (backend Go)",
+    "version": "1.0.0",
+    "description": "Backend de gobernanza de proyectos en Go (submodulo backend-go). Espejo del contrato de la API FastAPI original: JSON camelCase identico a @projecthub/shared, errores {codigo, mensaje} con mapeo 404/409/422, autenticacion por Bearer JWT (X-Actor-Id queda como fallback de compatibilidad para pruebas). Rate limit de login: 429 LIMITE_INTENTOS tras RATE_LIMIT_LOGIN_INTENTOS fallos en RATE_LIMIT_LOGIN_VENTANA_SEG segundos."
+  },
+  "servers": [{ "url": "http://localhost:8100", "description": "dev/demo (Docker 8100, mismo puerto del backend Python deprecado)" }],
+  "tags": [
+    { "name": "salud" },
+    { "name": "auth" },
+    { "name": "usuarios" },
+    { "name": "proyectos" },
+    { "name": "etapas" },
+    { "name": "entregables" },
+    { "name": "bitacora" },
+    { "name": "sincronizacion" }
+  ],
+  "paths": {
+    "/api/salud": {
+      "get": {
+        "tags": ["salud"],
+        "summary": "Salud del servicio (publico).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "estado": { "type": "string", "example": "ok" }, "servicio": { "type": "string", "example": "projecthub-backend" } } } } }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Login con correo y contrasena; devuelve JWT HS256 (sub = id de usuario, exp 7 dias).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["correo", "contrasena"], "properties": { "correo": { "type": "string" }, "contrasena": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesion iniciada",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" }, "tipo": { "type": "string", "example": "Bearer" }, "usuario": { "$ref": "#/components/schemas/Usuario" } } } } }
+          },
+          "401": { "$ref": "#/components/responses/CredencialesInvalidas" },
+          "403": { "$ref": "#/components/responses/UsuarioInactivo" },
+          "429": { "$ref": "#/components/responses/LimiteIntentos" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Usuario de la sesion actual.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Usuario" } } } },
+          "401": { "$ref": "#/components/responses/SesionInvalida" },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/auth/contrasena": {
+      "put": {
+        "tags": ["auth"],
+        "summary": "Cambio de contrasena propia (exige la actual; minimo 8 caracteres).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["contrasenaActual", "contrasenaNueva"], "properties": { "contrasenaActual": { "type": "string" }, "contrasenaNueva": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cambiada", "content": { "application/json": { "schema": { "type": "object", "properties": { "cambiada": { "type": "boolean" } } } } } },
+          "401": { "$ref": "#/components/responses/ContrasenaActualInvalida" },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/usuarios": {
+      "get": {
+        "tags": ["usuarios"],
+        "summary": "Lista de usuarios (soloActivos=true filtra activos).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "soloActivos", "in": "query", "schema": { "type": "boolean" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Usuario" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "post": {
+        "tags": ["usuarios"],
+        "summary": "Crear usuario (solo Admin); recibe credencial demo.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["nombre", "correo", "roles"], "properties": { "nombre": { "type": "string" }, "correo": { "type": "string" }, "roles": { "type": "array", "items": { "$ref": "#/components/schemas/Rol" } }, "activo": { "type": "boolean", "default": true } } } } }
+        },
+        "responses": {
+          "201": { "description": "Creado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Usuario" } } } },
+          "409": { "description": "DUPLICADO (correo case-insensitive) o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/usuarios/{usuarioId}": {
+      "patch": {
+        "tags": ["usuarios"],
+        "summary": "Editar usuario (solo Admin); nunca deja el sistema sin Admin activo.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "usuarioId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "nombre": { "type": "string" }, "correo": { "type": "string" }, "roles": { "type": "array", "items": { "$ref": "#/components/schemas/Rol" } }, "activo": { "type": "boolean" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Actualizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Usuario" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "409": { "description": "DUPLICADO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/proyectos": {
+      "get": {
+        "tags": ["proyectos"],
+        "summary": "Portafolio completo.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Proyecto" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "post": {
+        "tags": ["proyectos"],
+        "summary": "Crear proyecto (matriz: Admin/Sponsor/PM en Planteamiento).",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["nombre"], "properties": { "nombre": { "type": "string" }, "descripcion": { "type": "string" }, "patrocinadorId": { "type": "string" }, "presupuestoEstimado": { "type": "number" }, "fechaObjetivo": { "type": "string", "example": "2027-03-31" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Creado en Planteamiento/Activo", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "409": { "description": "DUPLICADO (nombre case-insensitive) o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/proyectos/resumenes": {
+      "get": {
+        "tags": ["proyectos"],
+        "summary": "Resumen agregado de todos los proyectos.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Resumen" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}": {
+      "get": {
+        "tags": ["proyectos"],
+        "summary": "Detalle de proyecto.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "patch": {
+        "tags": ["proyectos"],
+        "summary": "Editar proyecto (nombre unico case-insensitive; no cerrado/cancelado).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "nombre": { "type": "string" }, "descripcion": { "type": "string" }, "fechaObjetivo": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Actualizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "409": { "description": "DUPLICADO, ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/resumen": {
+      "get": {
+        "tags": ["proyectos"],
+        "summary": "Resumen agregado del proyecto (avance ponderado, presupuesto, excedido).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Resumen" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/gate": {
+      "get": {
+        "tags": ["proyectos"],
+        "summary": "Gate de etapa actual (faltantes y pendientes de aprobacion).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EstadoGate" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/transicionar": {
+      "post": {
+        "tags": ["proyectos"],
+        "summary": "Transicion de etapa del ciclo de vida (valida grafo, permiso por matriz y gate abierto).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["destino"], "properties": { "destino": { "$ref": "#/components/schemas/EtapaCicloVida" }, "comentario": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Transicion aplicada y registrada en bitacora", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "409": { "description": "TRANSICION_INVALIDA, ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "VALIDACION (gate cerrado o cuerpo invalido)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/cancelar": {
+      "post": {
+        "tags": ["proyectos"],
+        "summary": "Cancelar proyecto (Admin/Sponsor; no permitido en Cierre).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "comentario": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cancelado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/cerrar": {
+      "post": {
+        "tags": ["proyectos"],
+        "summary": "Cerrar proyecto (Admin/Sponsor, solo desde etapa Cierre).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "comentario": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cerrado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Proyecto" } } } },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/etapas": {
+      "get": {
+        "tags": ["etapas"],
+        "summary": "Etapas de trabajo del proyecto.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Etapa" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "post": {
+        "tags": ["etapas"],
+        "summary": "Crear etapa de trabajo (valida fechas, montos, responsable activo y dependencias).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["nombre", "fechaInicio", "fechaFin", "responsableId"], "properties": { "nombre": { "type": "string" }, "fechaInicio": { "type": "string" }, "fechaFin": { "type": "string" }, "responsableId": { "type": "string" }, "presupuestoAsignado": { "type": "number" }, "avance": { "type": "number" }, "dependencias": { "type": "array", "items": { "type": "string" }, "description": "ids de etapas prerequisito (6.5)" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Creada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Etapa" } } } },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/entregables": {
+      "get": {
+        "tags": ["entregables"],
+        "summary": "Entregables del proyecto.",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Entregable" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "post": {
+        "tags": ["entregables"],
+        "summary": "Cargar entregable (version 1, pendiente de aprobacion).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["etapa", "nombre"], "properties": { "etapa": { "$ref": "#/components/schemas/EtapaCicloVida" }, "nombre": { "type": "string" }, "version": { "type": "integer", "minimum": 1, "default": 1 } } } } }
+        },
+        "responses": {
+          "201": { "description": "Creado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Entregable" } } } },
+          "409": { "description": "ESTADO_PROYECTO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/proyectos/{proyectoId}/bitacora": {
+      "get": {
+        "tags": ["bitacora"],
+        "summary": "Bitacora del proyecto (inmutable, con autor).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "parameters": [{ "name": "proyectoId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/BitacoraEntrada" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/etapas": {
+      "get": {
+        "tags": ["etapas"],
+        "summary": "Todas las etapas (bootstrap plano de stores, 13.3).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Etapa" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/etapas/{etapaId}": {
+      "patch": {
+        "tags": ["etapas"],
+        "summary": "Editar etapa (dependencias null no toca, [] borra; reexige prerequisitos al 100% si hay avance).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "etapaId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "nombre": { "type": "string" }, "fechaInicio": { "type": "string" }, "fechaFin": { "type": "string" }, "responsableId": { "type": "string" }, "presupuestoAsignado": { "type": "number" }, "avance": { "type": "number" }, "dependencias": { "type": "array", "items": { "type": "string" } } } } } }
+        },
+        "responses": {
+          "200": { "description": "Actualizada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Etapa" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      },
+      "delete": {
+        "tags": ["etapas"],
+        "summary": "Eliminar etapa (rechazada si otras dependen de ella).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "etapaId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "Eliminada" },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/etapas/{etapaId}/avance": {
+      "post": {
+        "tags": ["etapas"],
+        "summary": "Registrar avance (0-100; prerequisitos al 100% si avance > 0).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "etapaId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["avance"], "properties": { "avance": { "type": "number" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Registrado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Etapa" } } } },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/etapas/{etapaId}/consumo": {
+      "post": {
+        "tags": ["etapas"],
+        "summary": "Registrar consumo acumulado (unica operacion permitida en proyecto cancelado).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "etapaId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["consumo"], "properties": { "consumo": { "type": "number" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Registrado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Etapa" } } } },
+          "409": { "description": "ESTADO_PROYECTO o PERMISO_DENEGADO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/entregables": {
+      "get": {
+        "tags": ["entregables"],
+        "summary": "Todos los entregables (bootstrap plano).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Entregable" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/entregables/{entregableId}/aprobar": {
+      "post": {
+        "tags": ["entregables"],
+        "summary": "Aprobar entregable (gobernanza; el autor no autoaprueba, no se reaprueba).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "entregableId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Aprobado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Entregable" } } } },
+          "404": { "$ref": "#/components/responses/NoEncontrado" },
+          "409": { "description": "PERMISO_DENEGADO o ESTADO_PROYECTO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "$ref": "#/components/responses/Validacion" }
+        }
+      }
+    },
+    "/api/bitacora": {
+      "get": {
+        "tags": ["bitacora"],
+        "summary": "Toda la bitacora (bootstrap plano).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/BitacoraEntrada" } } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      }
+    },
+    "/api/sincronizacion": {
+      "get": {
+        "tags": ["sincronizacion"],
+        "summary": "Estado completo del dominio (bootstrap de stores, 13.3).",
+        "security": [{ "bearerAuth": [] }, { "actorId": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EstadoCompleto" } } } },
+          "422": { "$ref": "#/components/responses/FaltaAutenticacion" }
+        }
+      },
+      "put": {
+        "tags": ["sincronizacion"],
+        "summary": "Re-sync total (13.4): reemplaza el estado con el del cliente. Push identico: cualquier actor; diff de usuarios: solo Admin. Bitacora append-only (3.5) con integridad de entradas nuevas (VULN-001..011 mitigadas).",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EstadoCompleto" } } }
+        },
+        "responses": {
+          "200": { "description": "Estado aplicado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EstadoCompleto" } } } },
+          "409": { "description": "PERMISO_DENEGADO, DUPLICADO o ESTADO_PROYECTO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "VALIDACION (invariantes de dominio, referencias, prefijos de id, bitacora)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
+      "actorId": { "type": "apiKey", "in": "header", "name": "X-Actor-Id", "description": "Fallback de compatibilidad para pruebas del backend; el frontend usa solo Bearer." }
+    },
+    "responses": {
+      "NoEncontrado": { "description": "ENTIDAD_NO_ENCONTRADA", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Validacion": { "description": "VALIDACION", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "FaltaAutenticacion": { "description": "VALIDACION: falta Bearer o X-Actor-Id", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "SesionInvalida": { "description": "SESION_INVALIDA (token invalido/expirado o usuario inexistente)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "UsuarioInactivo": { "description": "USUARIO_INACTIVO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "CredencialesInvalidas": { "description": "CREDENCIALES_INVALIDAS", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "ContrasenaActualInvalida": { "description": "CONTRASENA_ACTUAL_INVALIDA", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "LimiteIntentos": { "description": "LIMITE_INTENTOS (rate limit de login, VULN-003)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["codigo", "mensaje"],
+        "properties": { "codigo": { "type": "string", "enum": ["ENTIDAD_NO_ENCONTRADA", "DUPLICADO", "PERMISO_DENEGADO", "ESTADO_PROYECTO", "TRANSICION_INVALIDA", "VALIDACION", "SESION_INVALIDA", "USUARIO_INACTIVO", "CREDENCIALES_INVALIDAS", "LIMITE_INTENTOS", "CONTRASENA_ACTUAL_INVALIDA", "ERROR_INTERNO"] }, "mensaje": { "type": "string" } }
+      },
+      "Rol": { "type": "string", "enum": ["Admin", "Sponsor", "ProjectManager", "Analista", "Stakeholder"] },
+      "EtapaCicloVida": { "type": "string", "enum": ["Planteamiento", "Iniciativa", "PoC", "ValidacionPoC", "Planeacion", "Contratos", "Ejecucion", "Operacion", "Cierre"] },
+      "EstadoProyecto": { "type": "string", "enum": ["Activo", "Cancelado", "Cerrado"] },
+      "Usuario": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "nombre": { "type": "string" }, "correo": { "type": "string" }, "roles": { "type": "array", "items": { "$ref": "#/components/schemas/Rol" } }, "activo": { "type": "boolean" } }
+      },
+      "Proyecto": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "nombre": { "type": "string" }, "descripcion": { "type": "string" }, "patrocinadorId": { "type": "string" }, "presupuestoEstimado": { "type": "number" }, "fechaObjetivo": { "type": "string" }, "etapa": { "$ref": "#/components/schemas/EtapaCicloVida" }, "estado": { "$ref": "#/components/schemas/EstadoProyecto" } }
+      },
+      "Etapa": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "proyectoId": { "type": "string" }, "nombre": { "type": "string" }, "fechaInicio": { "type": "string", "example": "2026-09-01" }, "fechaFin": { "type": "string", "example": "2026-09-30" }, "responsableId": { "type": "string" }, "presupuestoAsignado": { "type": "number" }, "presupuestoConsumido": { "type": "number" }, "avance": { "type": "number", "minimum": 0, "maximum": 100 }, "dependencias": { "type": "array", "items": { "type": "string" }, "description": "ids de prerequisitos; siempre [] (nunca null)" } }
+      },
+      "Entregable": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "proyectoId": { "type": "string" }, "etapa": { "$ref": "#/components/schemas/EtapaCicloVida" }, "nombre": { "type": "string" }, "version": { "type": "integer" }, "aprobadoPorId": { "type": "string", "nullable": true }, "aprobadoEn": { "type": "string", "nullable": true }, "creadoPorId": { "type": "string" } }
+      },
+      "BitacoraEntrada": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "proyectoId": { "type": "string" }, "autorId": { "type": "string" }, "fecha": { "type": "string" }, "tipo": { "type": "string", "enum": ["transicion", "aprobacion", "cambio"] }, "etapaOrigen": { "$ref": "#/components/schemas/EtapaCicloVida", "nullable": true }, "etapaDestino": { "$ref": "#/components/schemas/EtapaCicloVida", "nullable": true }, "comentario": { "type": "string", "nullable": true } }
+      },
+      "EstadoGate": {
+        "type": "object",
+        "properties": { "etapa": { "$ref": "#/components/schemas/EtapaCicloVida" }, "abierto": { "type": "boolean" }, "entregables": { "type": "array", "items": { "$ref": "#/components/schemas/Entregable" } }, "faltantes": { "type": "array", "items": { "type": "string" } }, "pendientesAprobacion": { "type": "array", "items": { "type": "string" } } }
+      },
+      "Resumen": {
+        "type": "object",
+        "properties": { "proyecto": { "$ref": "#/components/schemas/Proyecto" }, "avance": { "type": "number" }, "presupuestoTotal": { "type": "number" }, "consumoTotal": { "type": "number" }, "excedido": { "type": "boolean" }, "etapas": { "type": "array", "items": { "$ref": "#/components/schemas/Etapa" } } }
+      },
+      "EstadoCompleto": {
+        "type": "object",
+        "properties": { "usuarios": { "type": "array", "items": { "$ref": "#/components/schemas/Usuario" } }, "proyectos": { "type": "array", "items": { "$ref": "#/components/schemas/Proyecto" } }, "etapas": { "type": "array", "items": { "$ref": "#/components/schemas/Etapa" } }, "entregables": { "type": "array", "items": { "$ref": "#/components/schemas/Entregable" } }, "bitacora": { "type": "array", "items": { "$ref": "#/components/schemas/BitacoraEntrada" } } }
+      }
+    }
+  }
+}
