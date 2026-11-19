@@ -285,11 +285,23 @@ func TestSincronizacionGETyPUT(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("PUT sincronizacion: %d %s", rec.Code, rec.Body.String())
 	}
-	// PUT sin Admin: PERMISO_DENEGADO.
+	// PUT sin Admin pero sin diff de usuarios: aceptado (contrato 13.4,
+	// VULN-001 parte segura: solo el diff exige Admin).
 	pm := usuarioPM(t, s)
-	rec, cuerpo := peticionJSON(t, handler, "PUT", "/api/sincronizacion", &pm, estado)
+	rec, _ = peticionJSON(t, handler, "PUT", "/api/sincronizacion", &pm, estado)
+	if rec.Code != 200 {
+		t.Fatalf("PUT sin admin sin diff de usuarios debio pasar: %d %s", rec.Code, rec.Body.String())
+	}
+	// PUT sin Admin CON diff de usuarios: 409 PERMISO_DENEGADO.
+	estadoConDiff := s.Servicio.EstadoCompleto()
+	for i := range estadoConDiff.Usuarios {
+		if estadoConDiff.Usuarios[i].ID == "u-doble" {
+			estadoConDiff.Usuarios[i].Nombre = "Daniel Modificado"
+		}
+	}
+	rec, cuerpo := peticionJSON(t, handler, "PUT", "/api/sincronizacion", &pm, estadoConDiff)
 	if rec.Code != 409 || cuerpo["codigo"] != "PERMISO_DENEGADO" {
-		t.Fatalf("PUT sin admin: %d %v", rec.Code, cuerpo)
+		t.Fatalf("PUT sin admin con diff: %d %v", rec.Code, cuerpo)
 	}
 }
 
