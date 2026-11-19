@@ -11,8 +11,9 @@ import (
 // Golden de paridad: token emitido por PyJWT (app/auth.py, crear_token con
 // secreto "secreto-paridad-go-py"). El Go debe verificarlo y extraer el sub.
 // Regenerar con:
-//   cd backend && python -c "import sys; sys.path.insert(0,'.'); from app.auth
-//   import crear_token; print(crear_token('u-admin','secreto-paridad-go-py'))"
+//
+//	cd backend && python -c "import sys; sys.path.insert(0,'.'); from app.auth
+//	import crear_token; print(crear_token('u-admin','secreto-paridad-go-py'))"
 func TestTokenDePyJWTVerificaEnGo(t *testing.T) {
 	tokenPy := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1LWFkbWluIiwiaWF0IjoxNzk1MDc1MTcxLCJleHAiOjE3OTU2Nzk5NzF9.YARAywOuCAomMWixT94NGsLB5CW_rQi-jOe78QfeC3Q"
 	if sub := LeerToken(tokenPy, "secreto-paridad-go-py"); sub != "u-admin" {
