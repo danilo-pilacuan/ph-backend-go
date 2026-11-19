@@ -221,12 +221,12 @@ func resumenJSON(rs domain.ResumenProyecto) map[string]any {
 		etapas = []domain.EtapaTrabajo{}
 	}
 	return map[string]any{
-		"proyecto":          rs.Proyecto,
-		"avance":            rs.Avance,
-		"presupuestoTotal":  rs.PresupuestoTotal,
-		"consumoTotal":      rs.ConsumoTotal,
-		"excedido":          rs.Excedido,
-		"etapas":            etapas,
+		"proyecto":         rs.Proyecto,
+		"avance":           rs.Avance,
+		"presupuestoTotal": rs.PresupuestoTotal,
+		"consumoTotal":     rs.ConsumoTotal,
+		"excedido":         rs.Excedido,
+		"etapas":           etapas,
 	}
 }
 

@@ -325,11 +325,21 @@ func (r *RepositorioPostgres) BitacoraReemplazar(l []domain.BitacoraEntrada) {
 	}
 }
 
-func (r *RepositorioPostgres) UsuariosAgregar(u domain.Usuario)         { _ = r.escribirEntidad("usuarios", u.ID, u) }
-func (r *RepositorioPostgres) ProyectosAgregar(p domain.Proyecto)       { _ = r.escribirEntidad("proyectos", p.ID, p) }
-func (r *RepositorioPostgres) EtapasAgregar(e domain.EtapaTrabajo)      { _ = r.escribirEntidad("etapas", e.ID, e) }
-func (r *RepositorioPostgres) EntregablesAgregar(e domain.Entregable)   { _ = r.escribirEntidad("entregables", e.ID, e) }
-func (r *RepositorioPostgres) BitacoraAgregar(b domain.BitacoraEntrada) { _ = r.escribirEntidad("bitacora", b.ID, b) }
+func (r *RepositorioPostgres) UsuariosAgregar(u domain.Usuario) {
+	_ = r.escribirEntidad("usuarios", u.ID, u)
+}
+func (r *RepositorioPostgres) ProyectosAgregar(p domain.Proyecto) {
+	_ = r.escribirEntidad("proyectos", p.ID, p)
+}
+func (r *RepositorioPostgres) EtapasAgregar(e domain.EtapaTrabajo) {
+	_ = r.escribirEntidad("etapas", e.ID, e)
+}
+func (r *RepositorioPostgres) EntregablesAgregar(e domain.Entregable) {
+	_ = r.escribirEntidad("entregables", e.ID, e)
+}
+func (r *RepositorioPostgres) BitacoraAgregar(b domain.BitacoraEntrada) {
+	_ = r.escribirEntidad("bitacora", b.ID, b)
+}
 
 var _ Repositorio = (*RepositorioPostgres)(nil)
 
@@ -352,7 +362,9 @@ func (r *RepositorioPostgres) Listar() map[string]string {
 }
 
 // Guardar hace upsert del hash (interfaz auth.RepositorioCredenciales).
-func (r *RepositorioPostgres) Guardar(correo, hash string) error { return r.GuardarCredencial(correo, hash) }
+func (r *RepositorioPostgres) Guardar(correo, hash string) error {
+	return r.GuardarCredencial(correo, hash)
+}
 
 // ---------- Credenciales (14.5, tabla propia) ----------
 

@@ -17,16 +17,16 @@ func DependenciasVacias() []string { return []string{} }
 
 // EtapaTrabajo: unidad de planificacion (lo que se dibuja en el Gantt).
 type EtapaTrabajo struct {
-	ID                   string           `json:"id"`
-	ProyectoID           string           `json:"proyectoId"`
-	Nombre               string           `json:"nombre"`
-	FechaInicio          string           `json:"fechaInicio"` // ISO yyyy-mm-dd
-	FechaFin             string           `json:"fechaFin"`    // ISO yyyy-mm-dd
-	ResponsableID        string           `json:"responsableId"`
-	PresupuestoAsignado  float64          `json:"presupuestoAsignado"`
-	PresupuestoConsumido float64          `json:"presupuestoConsumido"`
-	Avance               float64          `json:"avance"` // 0-100; el avance del proyecto se calcula, nunca se edita
-	Dependencias         []string         `json:"dependencias"`
+	ID                   string   `json:"id"`
+	ProyectoID           string   `json:"proyectoId"`
+	Nombre               string   `json:"nombre"`
+	FechaInicio          string   `json:"fechaInicio"` // ISO yyyy-mm-dd
+	FechaFin             string   `json:"fechaFin"`    // ISO yyyy-mm-dd
+	ResponsableID        string   `json:"responsableId"`
+	PresupuestoAsignado  float64  `json:"presupuestoAsignado"`
+	PresupuestoConsumido float64  `json:"presupuestoConsumido"`
+	Avance               float64  `json:"avance"` // 0-100; el avance del proyecto se calcula, nunca se edita
+	Dependencias         []string `json:"dependencias"`
 }
 
 // Normalizar: aplica invariantes de contrato tras cargar desde JSON externo
@@ -39,14 +39,14 @@ func (e *EtapaTrabajo) Normalizar() {
 
 // Proyecto: agregado central del sistema documental.
 type Proyecto struct {
-	ID                   string         `json:"id"`
-	Nombre               string         `json:"nombre"`
-	Descripcion          string         `json:"descripcion"`
-	PatrocinadorID       string         `json:"patrocinadorId"`
-	PresupuestoEstimado  float64        `json:"presupuestoEstimado"`
-	FechaObjetivo        string         `json:"fechaObjetivo"` // ISO yyyy-mm-dd
-	Etapa                EtapaCicloVida `json:"etapa"`
-	Estado               EstadoProyecto `json:"estado"`
+	ID                  string         `json:"id"`
+	Nombre              string         `json:"nombre"`
+	Descripcion         string         `json:"descripcion"`
+	PatrocinadorID      string         `json:"patrocinadorId"`
+	PresupuestoEstimado float64        `json:"presupuestoEstimado"`
+	FechaObjetivo       string         `json:"fechaObjetivo"` // ISO yyyy-mm-dd
+	Etapa               EtapaCicloVida `json:"etapa"`
+	Estado              EstadoProyecto `json:"estado"`
 }
 
 // Entregable: documento obligatorio de una etapa, con version y aprobacion.
@@ -72,24 +72,24 @@ const (
 
 // BitacoraEntrada: registro inmutable y con autor de acciones de gobierno.
 type BitacoraEntrada struct {
-	ID            string          `json:"id"`
-	ProyectoID    string          `json:"proyectoId"`
-	AutorID       string          `json:"autorId"`
-	Fecha         string          `json:"fecha"` // ISO datetime
-	Tipo          TipoBitacora    `json:"tipo"`
-	EtapaOrigen   *EtapaCicloVida `json:"etapaOrigen"`
-	EtapaDestino  *EtapaCicloVida `json:"etapaDestino"`
-	Comentario    *string         `json:"comentario"`
+	ID           string          `json:"id"`
+	ProyectoID   string          `json:"proyectoId"`
+	AutorID      string          `json:"autorId"`
+	Fecha        string          `json:"fecha"` // ISO datetime
+	Tipo         TipoBitacora    `json:"tipo"`
+	EtapaOrigen  *EtapaCicloVida `json:"etapaOrigen"`
+	EtapaDestino *EtapaCicloVida `json:"etapaDestino"`
+	Comentario   *string         `json:"comentario"`
 }
 
 // ResumenProyecto: calculos agregados (5.1-5.5); nada se edita a mano.
 type ResumenProyecto struct {
-	Proyecto          Proyecto       `json:"proyecto"`
-	Avance            float64        `json:"avance"`
-	PresupuestoTotal  float64        `json:"presupuestoTotal"`
-	ConsumoTotal      float64        `json:"consumoTotal"`
-	Etapas            []EtapaTrabajo `json:"etapas"`
-	Excedido          bool           `json:"excedido"`
+	Proyecto         Proyecto       `json:"proyecto"`
+	Avance           float64        `json:"avance"`
+	PresupuestoTotal float64        `json:"presupuestoTotal"`
+	ConsumoTotal     float64        `json:"consumoTotal"`
+	Etapas           []EtapaTrabajo `json:"etapas"`
+	Excedido         bool           `json:"excedido"`
 }
 
 // EstadoGate: resultado de evaluar el gate de etapa (3.4).

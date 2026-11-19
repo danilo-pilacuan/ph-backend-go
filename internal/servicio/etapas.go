@@ -11,13 +11,13 @@ import (
 
 // DatosEtapa: entrada de crear/editar etapa (opcional en nil).
 type DatosEtapa struct {
-	Nombre               *string
-	FechaInicio          *string
-	FechaFin             *string
-	ResponsableID        *string
-	PresupuestoAsignado  *float64
-	Avance               *float64
-	Dependencias         *[]string // nil = no tocar; &[] = reemplaza (6.5)
+	Nombre              *string
+	FechaInicio         *string
+	FechaFin            *string
+	ResponsableID       *string
+	PresupuestoAsignado *float64
+	Avance              *float64
+	Dependencias        *[]string // nil = no tocar; &[] = reemplaza (6.5)
 }
 
 // CrearEtapa: valida fechas/montos/avance, responsable activo y dependencias
@@ -37,8 +37,8 @@ func (s *ServicioProyectos) CrearEtapa(proyectoID string, datos DatosEtapa, acto
 		return domain.EtapaTrabajo{}, err
 	}
 	etapa := domain.EtapaTrabajo{
-		ID:            NuevoID("e"),
-		ProyectoID:    proyecto.ID,
+		ID:         NuevoID("e"),
+		ProyectoID: proyecto.ID,
 	}
 	if datos.Nombre != nil {
 		etapa.Nombre = *datos.Nombre

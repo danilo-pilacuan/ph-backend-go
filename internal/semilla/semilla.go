@@ -4,7 +4,7 @@ package semilla
 
 import "github.com/danilo-pilacuan/projecthub-backend-go/internal/domain"
 
-func str(v string) *string { return &v }
+func str(v string) *string                                 { return &v }
 func etapa(v domain.EtapaCicloVida) *domain.EtapaCicloVida { return &v }
 
 var UsuariosSemilla = []domain.Usuario{

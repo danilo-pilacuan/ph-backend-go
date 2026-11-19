@@ -11,11 +11,11 @@ import (
 
 // DatosProyecto: entrada de crear/editar (campos opcionales en nil).
 type DatosProyecto struct {
-	Nombre               *string
-	Descripcion          *string
-	PatrocinadorID       *string
-	PresupuestoEstimado  *float64
-	FechaObjetivo        *string
+	Nombre              *string
+	Descripcion         *string
+	PatrocinadorID      *string
+	PresupuestoEstimado *float64
+	FechaObjetivo       *string
 }
 
 // CrearProyecto: etapa inicial Planteamiento, estado Activo, unicidad de

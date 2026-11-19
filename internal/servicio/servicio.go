@@ -23,7 +23,7 @@ func NuevoID(prefijo string) string {
 
 // ServicioProyectos: casos de uso sobre el repositorio inyectado.
 type ServicioProyectos struct {
-	repo    almacen.Repositorio
+	repo       almacen.Repositorio
 	credCambio CambioCredenciales
 }
 
@@ -42,10 +42,10 @@ func (s *ServicioProyectos) AsignarCredenciales(c CambioCredenciales) { s.credCa
 
 // ---------- Consultas ----------
 
-func (s *ServicioProyectos) Usuarios() []domain.Usuario       { return s.repo.Usuarios() }
-func (s *ServicioProyectos) Proyectos() []domain.Proyecto     { return s.repo.Proyectos() }
-func (s *ServicioProyectos) Etapas() []domain.EtapaTrabajo    { return s.repo.Etapas() }
-func (s *ServicioProyectos) Entregables() []domain.Entregable { return s.repo.Entregables() }
+func (s *ServicioProyectos) Usuarios() []domain.Usuario         { return s.repo.Usuarios() }
+func (s *ServicioProyectos) Proyectos() []domain.Proyecto       { return s.repo.Proyectos() }
+func (s *ServicioProyectos) Etapas() []domain.EtapaTrabajo      { return s.repo.Etapas() }
+func (s *ServicioProyectos) Entregables() []domain.Entregable   { return s.repo.Entregables() }
 func (s *ServicioProyectos) Bitacora() []domain.BitacoraEntrada { return s.repo.Bitacora() }
 
 func (s *ServicioProyectos) UsuarioPorID(id string) *domain.Usuario {

@@ -62,20 +62,26 @@ func copiar[T any](src []T) []T {
 	return out
 }
 
-func (r *RepositorioMemoria) Usuarios() []domain.Usuario           { return copiar(r.usuarios) }
-func (r *RepositorioMemoria) Proyectos() []domain.Proyecto         { return copiar(r.proyectos) }
-func (r *RepositorioMemoria) Etapas() []domain.EtapaTrabajo        { return copiar(r.etapas) }
-func (r *RepositorioMemoria) Entregables() []domain.Entregable     { return copiar(r.entregables) }
-func (r *RepositorioMemoria) Bitacora() []domain.BitacoraEntrada   { return copiar(r.bitacora) }
+func (r *RepositorioMemoria) Usuarios() []domain.Usuario         { return copiar(r.usuarios) }
+func (r *RepositorioMemoria) Proyectos() []domain.Proyecto       { return copiar(r.proyectos) }
+func (r *RepositorioMemoria) Etapas() []domain.EtapaTrabajo      { return copiar(r.etapas) }
+func (r *RepositorioMemoria) Entregables() []domain.Entregable   { return copiar(r.entregables) }
+func (r *RepositorioMemoria) Bitacora() []domain.BitacoraEntrada { return copiar(r.bitacora) }
 
-func (r *RepositorioMemoria) UsuariosReemplazar(l []domain.Usuario)     { r.usuarios = copiar(l) }
-func (r *RepositorioMemoria) ProyectosReemplazar(l []domain.Proyecto)   { r.proyectos = copiar(l) }
-func (r *RepositorioMemoria) EtapasReemplazar(l []domain.EtapaTrabajo)  { r.etapas = copiar(l) }
-func (r *RepositorioMemoria) EntregablesReemplazar(l []domain.Entregable) { r.entregables = copiar(l) }
+func (r *RepositorioMemoria) UsuariosReemplazar(l []domain.Usuario)         { r.usuarios = copiar(l) }
+func (r *RepositorioMemoria) ProyectosReemplazar(l []domain.Proyecto)       { r.proyectos = copiar(l) }
+func (r *RepositorioMemoria) EtapasReemplazar(l []domain.EtapaTrabajo)      { r.etapas = copiar(l) }
+func (r *RepositorioMemoria) EntregablesReemplazar(l []domain.Entregable)   { r.entregables = copiar(l) }
 func (r *RepositorioMemoria) BitacoraReemplazar(l []domain.BitacoraEntrada) { r.bitacora = copiar(l) }
 
-func (r *RepositorioMemoria) UsuariosAgregar(e domain.Usuario)         { r.usuarios = append(r.usuarios, e) }
-func (r *RepositorioMemoria) ProyectosAgregar(e domain.Proyecto)       { r.proyectos = append(r.proyectos, e) }
-func (r *RepositorioMemoria) EtapasAgregar(e domain.EtapaTrabajo)      { r.etapas = append(r.etapas, e) }
-func (r *RepositorioMemoria) EntregablesAgregar(e domain.Entregable)   { r.entregables = append(r.entregables, e) }
-func (r *RepositorioMemoria) BitacoraAgregar(e domain.BitacoraEntrada) { r.bitacora = append(r.bitacora, e) }
+func (r *RepositorioMemoria) UsuariosAgregar(e domain.Usuario) { r.usuarios = append(r.usuarios, e) }
+func (r *RepositorioMemoria) ProyectosAgregar(e domain.Proyecto) {
+	r.proyectos = append(r.proyectos, e)
+}
+func (r *RepositorioMemoria) EtapasAgregar(e domain.EtapaTrabajo) { r.etapas = append(r.etapas, e) }
+func (r *RepositorioMemoria) EntregablesAgregar(e domain.Entregable) {
+	r.entregables = append(r.entregables, e)
+}
+func (r *RepositorioMemoria) BitacoraAgregar(e domain.BitacoraEntrada) {
+	r.bitacora = append(r.bitacora, e)
+}

@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	Iteraciones            = 240000
-	DuracionTokenSegundos  = 7 * 24 * 3600
-	LongitudMinimaClave    = 8
-	ClaveDemoDefault       = "projecthub-demo"
+	Iteraciones           = 240000
+	DuracionTokenSegundos = 7 * 24 * 3600
+	LongitudMinimaClave   = 8
+	ClaveDemoDefault      = "projecthub-demo"
 )
 
 // ClaveDemo: contrasena demo de semilla y usuarios nuevos (config, no literal).

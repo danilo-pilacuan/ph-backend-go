@@ -59,7 +59,9 @@ func mapearErrorDominio(w http.ResponseWriter, err error) {
 	escribirError(w, estado, string(de.Codigo), de.Mensaje)
 }
 
-func errorHTTP(estado int, codigo, mensaje string) *errorHTTPTipo { return &errorHTTPTipo{estado, codigo, mensaje} }
+func errorHTTP(estado int, codigo, mensaje string) *errorHTTPTipo {
+	return &errorHTTPTipo{estado, codigo, mensaje}
+}
 
 type errorHTTPTipo struct {
 	estado  int
@@ -67,7 +69,9 @@ type errorHTTPTipo struct {
 	mensaje string
 }
 
-func (e *errorHTTPTipo) Error() string { return fmt.Sprintf("%d %s: %s", e.estado, e.codigo, e.mensaje) }
+func (e *errorHTTPTipo) Error() string {
+	return fmt.Sprintf("%d %s: %s", e.estado, e.codigo, e.mensaje)
+}
 
 // ---------- Cuerpos de peticion (esquemas.py) ----------
 
@@ -139,10 +143,10 @@ type CuerpoEntregable struct {
 }
 
 type CuerpoUsuario struct {
-	Nombre string        `json:"nombre"`
-	Correo string        `json:"correo"`
-	Roles  []domain.Rol  `json:"roles"`
-	Activo *bool         `json:"activo"`
+	Nombre string       `json:"nombre"`
+	Correo string       `json:"correo"`
+	Roles  []domain.Rol `json:"roles"`
+	Activo *bool        `json:"activo"`
 }
 
 type CuerpoEdicionUsuario struct {

@@ -13,11 +13,11 @@ import (
 
 // EstadoCompleto: snapshot canonico (consulta de re-sync 6.6).
 type EstadoCompleto struct {
-	Usuarios    []domain.Usuario          `json:"usuarios"`
-	Proyectos   []domain.Proyecto         `json:"proyectos"`
-	Etapas      []domain.EtapaTrabajo     `json:"etapas"`
-	Entregables []domain.Entregable       `json:"entregables"`
-	Bitacora    []domain.BitacoraEntrada  `json:"bitacora"`
+	Usuarios    []domain.Usuario         `json:"usuarios"`
+	Proyectos   []domain.Proyecto        `json:"proyectos"`
+	Etapas      []domain.EtapaTrabajo    `json:"etapas"`
+	Entregables []domain.Entregable      `json:"entregables"`
+	Bitacora    []domain.BitacoraEntrada `json:"bitacora"`
 }
 
 // EstadoCompleto: colecciones ordenadas por ID (determinismo para golden

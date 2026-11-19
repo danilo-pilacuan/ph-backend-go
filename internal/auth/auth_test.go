@@ -50,10 +50,10 @@ func TestVerificarClaveFormatoInvalido(t *testing.T) {
 		"",
 		"texto-sin-formato",
 		"md5$100$aa$bb",
-		"pbkdf2_sha256$xxx$aa$bb",  // iteraciones no numericas
-		"pbkdf2_sha256$100$zz$bb",  // sal no hex
-		"pbkdf2_sha256$100$aa",     // faltan partes
-		"pbkdf2_sha256$100$aa$gg",  // hash no hex
+		"pbkdf2_sha256$xxx$aa$bb", // iteraciones no numericas
+		"pbkdf2_sha256$100$zz$bb", // sal no hex
+		"pbkdf2_sha256$100$aa",    // faltan partes
+		"pbkdf2_sha256$100$aa$gg", // hash no hex
 	}
 	for _, caso := range casos {
 		if VerificarClave("x", caso) {

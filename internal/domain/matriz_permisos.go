@@ -9,9 +9,9 @@ func roles(rols ...Rol) []Rol { return rols }
 var TodosLosRoles = []Rol{RolAdmin, RolSponsor, RolProjectManager, RolAnalista, RolStakeholder}
 
 var (
-	SoloGobernanza    = []Rol{RolAdmin, RolSponsor}
-	GobernanzaYPM     = []Rol{RolAdmin, RolSponsor, RolProjectManager}
-	Ninguno           = []Rol{}
+	SoloGobernanza = []Rol{RolAdmin, RolSponsor}
+	GobernanzaYPM  = []Rol{RolAdmin, RolSponsor, RolProjectManager}
+	Ninguno        = []Rol{}
 )
 
 // Matriz: etapa -> accion -> roles habilitados. Mismos valores que la version
