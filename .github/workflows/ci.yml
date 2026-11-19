@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [master, RC5/dev, RC4/dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: projecthub_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:55432/projecthub_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27"
+          cache-dependency-path: go.sum
+      - name: Formato (gofmt)
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Test (dominio, servicio, almacen Postgres, API httptest, auth)
+        run: go test ./... -count=1
+      - name: Golden de semilla
+        run: go run ./cmd/golden-seed > /tmp/semilla_go.json && test -s /tmp/semilla_go.json
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build imagen
+        run: docker build -t ph-backend-go:ci .
+      - name: Smoke del contenedor
+        run: |
+          docker run -d --name smoke -p 8100:8100 ph-backend-go:ci
+          sleep 3
+          curl -fsS http://localhost:8100/api/salud
+          docker rm -f smoke
