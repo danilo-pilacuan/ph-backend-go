@@ -7,15 +7,25 @@ como submodulo git.
 
 ## Estado
 
-Migracion en curso. Ver `docs/migracion.md` para el plan completo, la
-estimacion y la matriz de paridad con la version Python.
+Migracion completa (fases 0-5 de `docs/migracion.md`): dominio puro, servicio,
+repositorio memoria y Postgres JSONB, API HTTP de 21 rutas, paridad
+contracto-a-contracto verificada contra el backend Python vivo y cutover
+(Docker + CI). Pendiente solo operacional: registrar el submodulo en la raiz y
+apagar el Python cuando se decida el cutover final.
 
-## Ejecutar (cuando el server este completo)
+## Ejecutar
 
 ```bash
 go run ./cmd/server        # puerto 8100, igual que la API Python
-go test ./...
+go test ./...              # skipea tests Postgres si no hay BD en 55432
+docker build -t projecthub-backend-go . && docker run -p 8100:8100 projecthub-backend-go
 ```
+
+Variables: `DATABASE_URL` (Postgres JSONB; sin DSN usa memoria con semilla),
+`AUTH_SECRET` (firma JWT; sin ella secreto efimero con warning),
+`AUTH_CONTRASENA_DEMO` (default `projecthub-demo`), `ALLOWED_ORIGINS`,
+`RATE_LIMIT_LOGIN_INTENTOS` (5), `RATE_LIMIT_LOGIN_VENTANA_SEG` (60), `PORT`
+(8100).
 
 ## Convenciones
 

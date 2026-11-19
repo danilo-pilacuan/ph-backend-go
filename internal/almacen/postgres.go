@@ -333,6 +333,27 @@ func (r *RepositorioPostgres) BitacoraAgregar(b domain.BitacoraEntrada) { _ = r.
 
 var _ Repositorio = (*RepositorioPostgres)(nil)
 
+// Eliminar borra por correo (interfaz auth.RepositorioCredenciales).
+func (r *RepositorioPostgres) Eliminar(correo string) error { return r.EliminarCredencial(correo) }
+
+// EliminarExcepto limpia huerfanas (interfaz auth.RepositorioCredenciales).
+func (r *RepositorioPostgres) EliminarExcepto(correos []string) error {
+	return r.EliminarCredencialesExcepto(correos)
+}
+
+// Listar devuelve el mapa correo -> hash (interfaz auth.RepositorioCredenciales).
+func (r *RepositorioPostgres) Listar() map[string]string {
+	m, err := r.Credenciales()
+	if err != nil {
+		log.Printf("ERROR leyendo credenciales: %v", err)
+		return map[string]string{}
+	}
+	return m
+}
+
+// Guardar hace upsert del hash (interfaz auth.RepositorioCredenciales).
+func (r *RepositorioPostgres) Guardar(correo, hash string) error { return r.GuardarCredencial(correo, hash) }
+
 // ---------- Credenciales (14.5, tabla propia) ----------
 
 // GuardarCredencial: upsert correo -> hash PBKDF2.

@@ -37,10 +37,10 @@ func (s *ServicioProyectos) CrearProyecto(datos DatosProyecto, actor domain.Usua
 	if s.existeNombre(nombre, "") {
 		return domain.Proyecto{}, domain.ErrorDuplicado("proyecto", "nombre", nombre)
 	}
-	presupuesto := 0.0
+	presupuestoEstimado := 0.0
 	if datos.PresupuestoEstimado != nil {
-		presupuesto = *datos.PresupuestoEstimado
-		if !esMontoValido(presupuesto) {
+		presupuestoEstimado = *datos.PresupuestoEstimado
+		if !esMontoValido(presupuestoEstimado) {
 			return domain.Proyecto{}, domain.ErrorValidacion("El presupuesto estimado no puede ser negativo.")
 		}
 	}
@@ -61,7 +61,7 @@ func (s *ServicioProyectos) CrearProyecto(datos DatosProyecto, actor domain.Usua
 		Nombre:              nombre,
 		Descripcion:         descripcion,
 		PatrocinadorID:      patrocinador,
-		PresupuestoEstimado: presupuesto,
+		PresupuestoEstimado: presupuestoEstimado,
 		FechaObjetivo:       fechaObjetivo,
 		Etapa:               domain.EtapaPlanteamiento,
 		Estado:              domain.EstadoActivo,

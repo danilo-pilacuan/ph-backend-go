@@ -95,9 +95,11 @@ func (s *ServicioProyectos) EscribirEstadoCompleto(entrante EstadoCompleto, acto
 			return domain.ErrorValidacion("El autor del entregable %q no existe en el estado entrante.", e.Nombre)
 		}
 	}
-	for pid := range etapasPorProyecto {
-		if err := domain.ValidarDependencias("", pid, etapasPorProyecto[pid]); err != nil {
-			return err
+	for pid, etapasDelProyecto := range etapasPorProyecto {
+		for _, e := range etapasDelProyecto {
+			if err := domain.ValidarDependencias(e.ID, pid, etapasDelProyecto); err != nil {
+				return err
+			}
 		}
 	}
 	bitacoraFusionada, err := s.fusionarBitacora(s.repo.Bitacora(), entrante.Bitacora, actor.ID)

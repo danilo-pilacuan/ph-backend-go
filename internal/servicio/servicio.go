@@ -153,6 +153,28 @@ func (s *ServicioProyectos) Resumen(proyectoID string) (domain.ResumenProyecto, 
 	}, nil
 }
 
+// Resumenes: resumen de todos los proyectos (5.1-5.5, espejo resumenes()).
+func (s *ServicioProyectos) Resumenes() []domain.ResumenProyecto {
+	out := []domain.ResumenProyecto{}
+	for _, p := range s.repo.Proyectos() {
+		if rs, err := s.Resumen(p.ID); err == nil {
+			out = append(out, rs)
+		}
+	}
+	return out
+}
+
+// BitacoraDeProyecto: entradas del proyecto (consulta de bitacora 3.5).
+func (s *ServicioProyectos) BitacoraDeProyecto(proyectoID string) []domain.BitacoraEntrada {
+	var out []domain.BitacoraEntrada
+	for _, b := range s.repo.Bitacora() {
+		if b.ProyectoID == proyectoID {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
 // ---------- Helpers privados ----------
 
 func (s *ServicioProyectos) exigirProyecto(id string) (domain.Proyecto, error) {

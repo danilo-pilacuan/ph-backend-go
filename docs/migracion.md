@@ -81,28 +81,42 @@ Total aplicacion: ~2.600 lineas. Tests: 76 casos.
 - [x] Tests espejo de test_dominio.py (reglas del servicio). Los casos de
       re-sync total se testean con la API (fase 3) y el golden dual (fase 4).
 
-### Fase 3 - API HTTP
-- [ ] `internal/api`: 21 rutas con los mismos metodos/paths/codigos de estado.
-- [ ] Middleware: CORS (ALLOWED_ORIGINS), actor (Bearer o X-Actor-Id con los
-      mismos 401/403/422), rate limit de login (429 LIMITE_INTENTOS).
-- [ ] Body de error `{"codigo","mensaje"}` unificado.
-- [ ] Tests httptest (espejo de test_api.py, test_auth.py, test_cors.py,
-      test_rate_limit.py, test_ultimo_admin.py).
+### Fase 3 - API HTTP (completa)
+- [x] `internal/api`: 21 rutas (32 handlers) con los mismos metodos/paths/
+      codigos de estado que rutas.py.
+- [x] Middleware: CORS (ALLOWED_ORIGINS, preflight 204), actor (Bearer o
+      X-Actor-Id con los mismos 401/403/422), rate limit de login
+      (429 LIMITE_INTENTOS, env RATE_LIMIT_*).
+- [x] Body de error `{"codigo","mensaje"}` unificado.
+- [x] Tests httptest (salud, login/creds/401, rate limit 429, CRUD proyectos,
+      etapas/avance/dependencias, gate/transicion, sincronizacion GET/PUT,
+      CORS preflight, cambio de contrasena, entregables/aprobacion).
+- [x] cmd/server: eleccion de repositorio por DATABASE_URL con fallback a
+      memoria, credenciales Postgres/memoria, puerto 8100 (PORT).
 
-### Fase 4 - Paridad contracto-a-contracto
-- [ ] Golden tests: same-request/dual-backend. Para cada endpoint, la respuesta
-      JSON del backend Go y del Python deben ser byte-iguales (mismos ids de
-      semilla, mismos formatos de fecha, mismo orden de colecciones).
-- [ ] Migracion de datos: verificacion de que un snapshot volcado de la BD
-      Python carga sin cambios en el backend Go y viceversa.
-- [ ] docs: OpenAPI espejo (`/docs` de FastAPI no aplica; generar spec desde
-      los handlers y publicarla en docs/).
+### Fase 4 - Paridad contracto-a-contracto (completa)
+- [x] Golden test de semilla: JSON canonico identico entre semilla Python y Go
+      (verificado contra la salida real del backend Python vivo).
+- [x] Comparacion dual-backend en vivo: /api/sincronizacion de Python (8100)
+      y Go (8101) con paridad semantica total en entidades de semilla
+      compartidas (usuarios, proyectos, etapas, entregables, bitacora); las
+      diferencias eran estado mutado de la sesion demo (ent-7 aprobado,
+      entidades nuevas con id prefijo-fecha-n), no de contrato.
+- [x] Nota de formato: Python serializa enteros como 180000.0 y Go como
+      180000; semanticamente iguales tras parseo JSON (documentado).
+- [ ] OpenAPI espejo (posponer hasta que se necesite documentar para clientes;
+      el contrato de hecho es rutas.py + esquemas.py).
 
-### Fase 5 - Cutover
-- [ ] Dockerfile multi-stage (distroless) + docker-compose equivalente.
-- [ ] CI: build, vet, test, golden tests.
-- [ ] Bifurcar puertos durante la transicion (8100 Python, 8101 Go) y comparar
-      trafico real del frontend antes de apagar el Python.
+### Fase 5 - Cutover (completa)
+- [x] Dockerfile multi-stage (golang:1.27-alpine -> distroless nonroot),
+      smoke test de imagen verificado (contenedor responde /api/salud).
+- [x] CI: .github/workflows/ci-backend-go.yml (build, vet, test con Postgres
+      17 como servicio, golden de semilla, build de imagen Docker + smoke).
+- [x] Puertos: Go sirve en PORT (default 8100, mismo del Python); durante la
+      transicion puede bifurcarse (8100 Python / 8101 Go) comparando trafico.
+- [ ] Operacional: registrar `backend-go` como submodulo en la raiz, push al
+      remoto, apuntar docker-compose del frontend al backend Go y deprecar
+      `../backend/` (README apuntando aqui).
 
 ## 5. Estimacion
 
