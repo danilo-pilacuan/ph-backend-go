@@ -57,26 +57,29 @@ Total aplicacion: ~2.600 lineas. Tests: 76 casos.
 
 ## 4. Plan por fases
 
-### Fase 0 - Esqueleto y dominio puro (en curso)
+### Fase 0 - Esqueleto y dominio puro (completa)
 - [x] Repo inicializado, go.mod, README, .gitignore, licencia de migracion.
 - [x] `internal/domain`: catalogos, errores (codigos + mapeo HTTP), modelos con
       tags camelCase, matriz de permisos, ciclo de vida, gates, calculos,
       dependencias, PBKDF2/JWT sin dependencias.
-- [ ] Tests de dominio puro (espejo de test_dominio.py y test_dependencias.py).
+- [x] Tests de dominio puro (espejo de test_dominio.py y test_dependencias.py):
+      ciclo de vida, gates, calculos, matriz, dependencias y semilla.
 
 ### Fase 1 - Repositorios y semilla
-- [ ] `internal/almacen`: interfaz del repositorio (contrato de almacen.py).
-- [ ] RepositorioMemoria con semilla (misma que semilla.py).
+- [x] `internal/almacen`: interfaz del repositorio (contrato de almacen.py).
+- [x] RepositorioMemoria con semilla (identica a semilla.py, paridad JSON
+      canonica verificada con golden test).
 - [ ] RepositorioPostgres: esquema JSONB, semilla idempotente, upsert,
       reemplazo total; tabla `credenciales`.
-- [ ] Tests: memoria y roundtrip Postgres (espejo de test_almacen.py).
+- [ ] Tests: roundtrip Postgres (espejo de test_almacen.py).
 
-### Fase 2 - Servicio de dominio
-- [ ] `internal/servicio`: casos de uso (proyectos, etapas, entregables,
+### Fase 2 - Servicio de dominio (completa)
+- [x] `internal/servicio`: casos de uso (proyectos, etapas, entregables,
       usuarios, gates, bitacora inmutable, re-sync total con todas sus
       validaciones VULN-001..008, ultimo Admin activo, unicidad de
       nombre/correo case-insensitive).
-- [ ] Tests espejo de test_dominio.py + casos de re-sync (test_api.py).
+- [x] Tests espejo de test_dominio.py (reglas del servicio). Los casos de
+      re-sync total se testean con la API (fase 3) y el golden dual (fase 4).
 
 ### Fase 3 - API HTTP
 - [ ] `internal/api`: 21 rutas con los mismos metodos/paths/codigos de estado.
