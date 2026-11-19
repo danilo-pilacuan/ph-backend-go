@@ -1,0 +1,20 @@
+# Binarios
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Estado de sesion y artefactos
+*.test
+*.out
+coverage.*
+.idea/
+.vscode/
+*.log
+
+# Entorno
+.env
+.env.local
