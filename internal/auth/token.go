@@ -36,8 +36,9 @@ func CrearToken(usuarioID, secreto string, ahora *time.Time) string {
 	}
 	header := b64url([]byte(`{"alg":"HS256","typ":"JWT"}`))
 	payload, _ := json.Marshal(claims)
-	firma := hmacSHA256([]byte(header+"."+string(payload)), []byte(secreto))
-	return header + "." + string(payload) + "." + b64url(firma)
+	payloadCod := b64url(payload)
+	firma := hmacSHA256([]byte(header+"."+payloadCod), []byte(secreto))
+	return header + "." + payloadCod + "." + b64url(firma)
 }
 
 // LeerToken: id del usuario si el token es valido y no expiro; "" si no.
@@ -55,7 +56,11 @@ func LeerToken(token, secreto string) string {
 		return ""
 	}
 	var claims Claims
-	if err := json.Unmarshal([]byte(partes[1]), &claims); err != nil {
+	payload, err := base64.RawURLEncoding.DecodeString(partes[1])
+	if err != nil {
+		return ""
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
 		return ""
 	}
 	if claims.Exp > 0 && time.Now().Unix() >= claims.Exp {
