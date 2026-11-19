@@ -292,12 +292,19 @@ func validarInvariantesDominio(usuarios []domain.Usuario, proyectos []domain.Pro
 			}
 		}
 	}
-	// Dependencias (6.5) por proyecto.
-	for _, etapasDelProyecto := range etapasPorProyecto {
-		for _, e := range etapasDelProyecto {
-			if err := domain.ValidarDependencias(e.ID, e.ProyectoID, etapasDelProyecto); err != nil {
-				return err
-			}
+	// Dependencias (6.5) por proyecto: igual que Python, solo se validan las
+	// etapas CON dependencias y en el orden en que llegan del push (orden de
+	// insercion del JSON). La deteccion de ciclos de Python (`siguiente in
+	// pila` sobre la pila completa) es mas permisiva al recorrer desde las
+	// raices declaradas; validar TODAS las etapas (incluidas las sin
+	// dependencias) desde cualquier nodo rechazaria grafos que Python
+	// acepta y bloquearia re-syncs legitimos del frontend.
+	for _, e := range etapas {
+		if len(e.Dependencias) == 0 {
+			continue
+		}
+		if err := domain.ValidarDependencias(e.ID, e.ProyectoID, etapasPorProyecto[e.ProyectoID]); err != nil {
+			return err
 		}
 	}
 	return nil
