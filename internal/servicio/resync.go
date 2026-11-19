@@ -12,12 +12,15 @@ import (
 )
 
 // EstadoCompleto: snapshot canonico (consulta de re-sync 6.6).
+// Relaciones es opcional en el push (nil = sin cambios) para no romper a los
+// clientes que aun no conocen la coleccion (16.1).
 type EstadoCompleto struct {
-	Usuarios    []domain.Usuario         `json:"usuarios"`
-	Proyectos   []domain.Proyecto        `json:"proyectos"`
-	Etapas      []domain.EtapaTrabajo    `json:"etapas"`
-	Entregables []domain.Entregable      `json:"entregables"`
-	Bitacora    []domain.BitacoraEntrada `json:"bitacora"`
+	Usuarios    []domain.Usuario           `json:"usuarios"`
+	Proyectos   []domain.Proyecto          `json:"proyectos"`
+	Etapas      []domain.EtapaTrabajo      `json:"etapas"`
+	Entregables []domain.Entregable        `json:"entregables"`
+	Bitacora    []domain.BitacoraEntrada   `json:"bitacora"`
+	Relaciones  []domain.RelacionDocumento `json:"relaciones,omitempty"`
 }
 
 // EstadoCompleto: colecciones ordenadas por ID (determinismo para golden
@@ -28,12 +31,14 @@ func (s *ServicioProyectos) EstadoCompleto() EstadoCompleto {
 	etapas := append([]domain.EtapaTrabajo(nil), s.repo.Etapas()...)
 	entregables := append([]domain.Entregable(nil), s.repo.Entregables()...)
 	bitacora := append([]domain.BitacoraEntrada(nil), s.repo.Bitacora()...)
+	relaciones := append([]domain.RelacionDocumento(nil), s.repo.Relaciones()...)
 	sort.Slice(usuarios, func(i, j int) bool { return usuarios[i].ID < usuarios[j].ID })
 	sort.Slice(proyectos, func(i, j int) bool { return proyectos[i].ID < proyectos[j].ID })
 	sort.Slice(etapas, func(i, j int) bool { return etapas[i].ID < etapas[j].ID })
 	sort.Slice(entregables, func(i, j int) bool { return entregables[i].ID < entregables[j].ID })
 	sort.Slice(bitacora, func(i, j int) bool { return bitacora[i].ID < bitacora[j].ID })
-	return EstadoCompleto{Usuarios: usuarios, Proyectos: proyectos, Etapas: etapas, Entregables: entregables, Bitacora: bitacora}
+	sort.Slice(relaciones, func(i, j int) bool { return relaciones[i].ID < relaciones[j].ID })
+	return EstadoCompleto{Usuarios: usuarios, Proyectos: proyectos, Etapas: etapas, Entregables: entregables, Bitacora: bitacora, Relaciones: relaciones}
 }
 
 // EscribirEstadoCompleto: espejo del entrante; valida y fusiona todo antes de
@@ -80,12 +85,24 @@ func (s *ServicioProyectos) EscribirEstadoCompleto(entrante EstadoCompleto, acto
 	if err != nil {
 		return err
 	}
+	// Relaciones (16.1): coleccion opcional. Un cliente que no la conoce no
+	// la envia (nil): el servidor conserva la suya. Si viene, se valida la
+	// invariante de cada enlace contra el estado entrante y se reemplaza
+	// (los enlaces son catalogo corregible, no historial).
+	relacionesActuales := s.repo.Relaciones()
+	if entrante.Relaciones != nil {
+		if err := validarRelacionesEntrantes(entrante.Relaciones, entrante.Proyectos, entrante.Entregables, usuarios); err != nil {
+			return err
+		}
+		relacionesActuales = entrante.Relaciones
+	}
 	// Todo valido: aplicar (transaccion en memoria; en Postgres sera lote).
 	s.repo.UsuariosReemplazar(usuarios)
 	s.repo.ProyectosReemplazar(entrante.Proyectos)
 	s.repo.EtapasReemplazar(entrante.Etapas)
 	s.repo.EntregablesReemplazar(entrante.Entregables)
 	s.repo.BitacoraReemplazar(bitacoraFusionada)
+	s.repo.RelacionesReemplazar(relacionesActuales)
 	// 14.5: limpieza de credenciales huerfanas tras el push.
 	if s.credCambio != nil {
 		correos := map[string]bool{}
@@ -106,6 +123,9 @@ func verificarIDsUnicos(entrante EstadoCompleto) error {
 		idsDe(entrante.Entregables, func(e domain.Entregable) string { return e.ID }),
 		idsDe(entrante.Bitacora, func(b domain.BitacoraEntrada) string { return b.ID }),
 	}
+	if entrante.Relaciones != nil {
+		grupos = append(grupos, idsDe(entrante.Relaciones, func(r domain.RelacionDocumento) string { return r.ID }))
+	}
 	for _, grupo := range grupos {
 		vistos := map[string]bool{}
 		for _, id := range grupo {
@@ -116,6 +136,49 @@ func verificarIDsUnicos(entrante EstadoCompleto) error {
 		}
 	}
 	return nil
+}
+
+// validarRelacionesEntrantes (16.1): tipo del catalogo, no autoenlace, nota
+// acotada, par unico y documentos existentes del proyecto entrante. Los
+// enlaces son catalogo (no historial): el push reemplaza la coleccion.
+func validarRelacionesEntrantes(relaciones []domain.RelacionDocumento, proyectos []domain.Proyecto, entregables []domain.Entregable, usuarios []domain.Usuario) error {
+	idsProyectos := map[string]bool{}
+	for _, p := range proyectos {
+		idsProyectos[p.ID] = true
+	}
+	idsUsuarios := map[string]bool{}
+	for _, u := range usuarios {
+		idsUsuarios[u.ID] = true
+	}
+	for _, r := range relaciones {
+		if err := prefijoValido(r.ID, "rel"); err != nil {
+			return err
+		}
+		if !idsProyectos[r.ProyectoID] {
+			return domain.ErrorValidacion("La relacion %q referencia al proyecto %q, que no existe.", r.ID, r.ProyectoID)
+		}
+		if !idsUsuarios[r.CreadoPorID] {
+			return domain.ErrorValidacion("El autor %q de la relacion %q no existe.", r.CreadoPorID, r.ID)
+		}
+		if r.CreadoEn == "" || !fechaISOParseable(r.CreadoEn) {
+			return domain.ErrorValidacion("La relacion %q requiere una fecha de creacion ISO valida.", r.ID)
+		}
+		delProyecto := entregablesDelProyectoDe(entregables, r.ProyectoID)
+		if err := domain.ValidarRelacion(r, relaciones, delProyecto); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func entregablesDelProyectoDe(entregables []domain.Entregable, proyectoID string) []domain.Entregable {
+	var out []domain.Entregable
+	for _, e := range entregables {
+		if e.ProyectoID == proyectoID {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func idsDe[T any](lista []T, clave func(T) string) []string {

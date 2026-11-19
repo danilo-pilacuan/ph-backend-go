@@ -45,6 +45,11 @@ func (s *Servidor) registrarRutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/entregables/{entregableID}/aprobar", s.conActor(s.aprobarEntregable))
 	mux.HandleFunc("GET /api/entregables", s.conActor(s.listarTodosLosEntregables))
 	mux.HandleFunc("GET /api/bitacora", s.conActor(s.listarTodaLaBitacora))
+	mux.HandleFunc("GET /api/relaciones", s.conActor(s.listarTodasLasRelaciones))
+	mux.HandleFunc("GET /api/proyectos/{proyectoID}/relaciones", s.conActor(s.listarRelaciones))
+	mux.HandleFunc("POST /api/proyectos/{proyectoID}/relaciones", s.conActor(s.crearRelacion))
+	mux.HandleFunc("GET /api/proyectos/{proyectoID}/relaciones/grafo", s.conActor(s.obtenerGrafoRelaciones))
+	mux.HandleFunc("DELETE /api/relaciones/{relacionID}", s.conActor(s.eliminarRelacion))
 	mux.HandleFunc("GET /api/sincronizacion", s.conActor(s.leerEstado))
 	mux.HandleFunc("PUT /api/sincronizacion", s.conActor(s.escribirEstado))
 }
@@ -478,6 +483,69 @@ func (s *Servidor) listarTodaLaBitacora(w http.ResponseWriter, r *http.Request, 
 		lista = []domain.BitacoraEntrada{}
 	}
 	codificar(w, http.StatusOK, lista)
+}
+
+// ---------- Relaciones entre documentos (16.1) ----------
+
+func (s *Servidor) listarTodasLasRelaciones(w http.ResponseWriter, r *http.Request, actor domain.Usuario) {
+	lista := s.Servicio.Relaciones()
+	if lista == nil {
+		lista = []domain.RelacionDocumento{}
+	}
+	codificar(w, http.StatusOK, lista)
+}
+
+func (s *Servidor) listarRelaciones(w http.ResponseWriter, r *http.Request, actor domain.Usuario) {
+	lista := s.Servicio.RelacionesDeProyecto(r.PathValue("proyectoID"))
+	if lista == nil {
+		lista = []domain.RelacionDocumento{}
+	}
+	codificar(w, http.StatusOK, lista)
+}
+
+type CuerpoRelacion struct {
+	OrigenID  *string              `json:"origenId"`
+	DestinoID *string              `json:"destinoId"`
+	Tipo      *domain.TipoRelacion `json:"tipo"`
+	Nota      *string              `json:"nota"`
+}
+
+func (s *Servidor) crearRelacion(w http.ResponseWriter, r *http.Request, actor domain.Usuario) {
+	var cuerpo CuerpoRelacion
+	if !decodificar(w, r, &cuerpo) {
+		return
+	}
+	creada, err := s.Servicio.CrearRelacion(r.PathValue("proyectoID"), servicio.DatosRelacion{
+		OrigenID: cuerpo.OrigenID, DestinoID: cuerpo.DestinoID, Tipo: cuerpo.Tipo, Nota: servicio.NormalizarNotaPublica(cuerpo.Nota),
+	}, actor)
+	if err != nil {
+		s.responderError(w, err)
+		return
+	}
+	codificar(w, http.StatusCreated, creada)
+}
+
+func (s *Servidor) obtenerGrafoRelaciones(w http.ResponseWriter, r *http.Request, actor domain.Usuario) {
+	grafo, err := s.Servicio.GrafoRelaciones(r.PathValue("proyectoID"))
+	if err != nil {
+		s.responderError(w, err)
+		return
+	}
+	if grafo.Nodos == nil {
+		grafo.Nodos = []domain.NodoGrafo{}
+	}
+	if grafo.Aristas == nil {
+		grafo.Aristas = []domain.AristaGrafo{}
+	}
+	codificar(w, http.StatusOK, grafo)
+}
+
+func (s *Servidor) eliminarRelacion(w http.ResponseWriter, r *http.Request, actor domain.Usuario) {
+	if err := s.Servicio.EliminarRelacion(r.PathValue("relacionID"), actor); err != nil {
+		s.responderError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ---------- Sincronizacion ----------

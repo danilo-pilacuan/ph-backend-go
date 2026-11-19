@@ -3,6 +3,8 @@
 // identico: fechas ISO como string, sin time.Time para no alterar el formato.
 package domain
 
+import "strings"
+
 // Usuario del sistema; Roles usa los valores exactos del catalogo.
 type Usuario struct {
 	ID     string `json:"id"`
@@ -99,4 +101,102 @@ type EstadoGate struct {
 	Entregables          []Entregable   `json:"entregables"`
 	Faltantes            []string       `json:"faltantes"`
 	PendientesAprobacion []string       `json:"pendientesAprobacion"`
+}
+
+// TipoRelacion: semantica del enlace entre documentos (16.1). Los valores son
+// parte del contrato JSON; el grafo de busqueda los usa como etiqueta de arista.
+type TipoRelacion string
+
+const (
+	RelacionDerivaDe    TipoRelacion = "derivaDe"    // el destino deriva del origen
+	RelacionModifica    TipoRelacion = "modifica"    // adenda/modificacion: destino modifica origen
+	RelacionAnula       TipoRelacion = "anula"       // destino anula el origen
+	RelacionRelacionado TipoRelacion = "relacionado" // enlace debil de referencia
+	RelacionAclara      TipoRelacion = "aclara"      // aclaracion/acta que explica el origen
+)
+
+var TiposRelacion = []TipoRelacion{RelacionDerivaDe, RelacionModifica, RelacionAnula, RelacionRelacionado, RelacionAclara}
+
+var EtiquetaTipoRelacion = map[TipoRelacion]string{
+	RelacionDerivaDe:    "Deriva de",
+	RelacionModifica:    "Modifica (adenda)",
+	RelacionAnula:       "Anula",
+	RelacionRelacionado: "Relacionado con",
+	RelacionAclara:      "Aclara",
+}
+
+// EsTipoRelacionValido: el tipo llega del cliente; se valida en el canal.
+func EsTipoRelacionValido(t TipoRelacion) bool {
+	for _, v := range TiposRelacion {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
+// RelacionDocumento: enlace tipado entre dos documentos del mismo proyecto
+// (16.1, ideas del dueno: relaciones tipo obsidian para un grafo de busqueda
+// de acuerdos, adendas y relaciones). Direccion: origen -> destino. El
+// `rel` es 1:1 con los entregables (mismo proyecto): asi el grafo se arma
+// sobre el catalogo documental existente sin duplicar titulos.
+type RelacionDocumento struct {
+	ID          string       `json:"id"`
+	ProyectoID  string       `json:"proyectoId"`
+	OrigenID    string       `json:"origenId"`  // entregable origen (ent-*)
+	DestinoID   string       `json:"destinoId"` // entregable destino (ent-*)
+	Tipo        TipoRelacion `json:"tipo"`
+	CreadoPorID string       `json:"creadoPorId"`
+	CreadoEn    string       `json:"creadoEn"` // ISO datetime del servidor
+	Nota        *string      `json:"nota"`     // opcional: por que existe el enlace
+}
+
+// ValidarRelacion: invariante de dominio del enlace (16.1).
+//   - tipo del catalogo; nota opcional acotada (<= 500 chars tras strip);
+//   - origen y destino distintos (no hay autoenlace);
+//   - el par (origen, destino, tipo) es unico (sin duplicar aristas);
+//   - direccion consistente: si ya existe la inversa con tipo "modifica"/
+//     "anula"/"derivaDe", se rechaza (el par solo puede enlazarse una vez).
+func ValidarRelacion(r RelacionDocumento, existentes []RelacionDocumento, entregablesDelProyecto []Entregable) error {
+	if !EsTipoRelacionValido(r.Tipo) {
+		return ErrorValidacion("El tipo de relacion %q no es valido.", string(r.Tipo))
+	}
+	if r.OrigenID == r.DestinoID {
+		return ErrorValidacion("Un documento no puede relacionarse consigo mismo.")
+	}
+	if len([]rune(strings.TrimSpace(derefString(r.Nota)))) > 500 {
+		return ErrorValidacion("La nota de la relacion no puede exceder 500 caracteres.")
+	}
+	existeDoc := func(id string) bool {
+		for _, e := range entregablesDelProyecto {
+			if e.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !existeDoc(r.OrigenID) {
+		return ErrorEntidadNoEncontrada("Entregable (origen de la relacion)", r.OrigenID)
+	}
+	if !existeDoc(r.DestinoID) {
+		return ErrorEntidadNoEncontrada("Entregable (destino de la relacion)", r.DestinoID)
+	}
+	for _, previa := range existentes {
+		if previa.ID == r.ID {
+			continue
+		}
+		mismoPar := (previa.OrigenID == r.OrigenID && previa.DestinoID == r.DestinoID) ||
+			(previa.OrigenID == r.DestinoID && previa.DestinoID == r.OrigenID)
+		if mismoPar {
+			return ErrorDuplicado("relacion", "par de documentos", r.OrigenID+" <-> "+r.DestinoID)
+		}
+	}
+	return nil
+}
+
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }

@@ -51,7 +51,7 @@ func (r *RepositorioPostgres) Cerrar() { _ = r.db.Close() }
 
 // CrearEsquema: CREATE TABLE IF NOT EXISTS por coleccion (idempotente).
 func (r *RepositorioPostgres) CrearEsquema() error {
-	for _, nombre := range []string{"usuarios", "proyectos", "etapas", "entregables", "bitacora"} {
+	for _, nombre := range []string{"usuarios", "proyectos", "etapas", "entregables", "bitacora", "relaciones"} {
 		if _, err := r.db.Exec(
 			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %q (id text PRIMARY KEY, datos jsonb NOT NULL)`, nombre)); err != nil {
 			return err
@@ -207,6 +207,15 @@ func (r *RepositorioPostgres) Bitacora() []domain.BitacoraEntrada {
 	return l
 }
 
+func (r *RepositorioPostgres) Relaciones() []domain.RelacionDocumento {
+	l, err := leerTodos[domain.RelacionDocumento](r, "relaciones")
+	if err != nil {
+		log.Printf("ERROR leyendo relaciones: %v", err)
+		return []domain.RelacionDocumento{}
+	}
+	return l
+}
+
 // ---------- Escrituras ----------
 
 func (r *RepositorioPostgres) escribirEntidad(nombre, id string, entidad any) error {
@@ -339,6 +348,24 @@ func (r *RepositorioPostgres) EntregablesAgregar(e domain.Entregable) {
 }
 func (r *RepositorioPostgres) BitacoraAgregar(b domain.BitacoraEntrada) {
 	_ = r.escribirEntidad("bitacora", b.ID, b)
+}
+func (r *RepositorioPostgres) RelacionesReemplazar(l []domain.RelacionDocumento) {
+	items := make([]struct {
+		ID      string
+		Entidad any
+	}, 0, len(l))
+	for _, rel := range l {
+		items = append(items, struct {
+			ID      string
+			Entidad any
+		}{rel.ID, rel})
+	}
+	if err := r.reemplazarTodo("relaciones", items); err != nil {
+		log.Printf("ERROR reemplazando relaciones: %v", err)
+	}
+}
+func (r *RepositorioPostgres) RelacionesAgregar(e domain.RelacionDocumento) {
+	_ = r.escribirEntidad("relaciones", e.ID, e)
 }
 
 var _ Repositorio = (*RepositorioPostgres)(nil)
